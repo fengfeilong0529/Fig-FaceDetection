@@ -9,4 +9,4 @@
 ![界面截图](https://github.com/fengfeilong0529/Fig-FaceDetection/blob/master/aa.png)
 
 ## demo体验：
-![demo下载](https://github.com/fengfeilong0529/Fig-FaceDetection/blob/master/FigFaceDetection.png)
+![demo下载](https://github.com/fengfeilong0529/Fig-FaceDetection/blob/master/d.png)
