@@ -30,6 +30,7 @@ import static android.hardware.Camera.open;
 
 public class MainActivity extends Activity implements Camera.PreviewCallback, Camera.FaceDetectionListener, Camera.AutoFocusCallback {
     private static final String TAG = "MainActivity";
+    private static final int ROTATE_DEGREE = 90;
 
     @BindView(R.id.surfaceview)
     SurfaceView mSurfaceview;
@@ -81,8 +82,9 @@ public class MainActivity extends Activity implements Camera.PreviewCallback, Ca
             //Camera Preview Callback的YUV420常用数据格式有两种：一个是NV21，一个是YV12。Android一般默认使用YUV_420_SP的格式（NV21）
             parameters.setPreviewFormat(ImageFormat.NV21);//设置回调数据的格式
             parameters.setPreviewSize(PREVIEW_WIDTH, PREVIEW_HEIGHT); //对应手机的height和width
+            parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);//设置持续对焦模式
 
-            camera.setDisplayOrientation(90);//旋转90度
+            camera.setDisplayOrientation(ROTATE_DEGREE);//旋转90度
             camera.setParameters(parameters);//传入参数
             camera.setPreviewDisplay(surfaceHolder);
             camera.setPreviewCallback(this);
@@ -94,6 +96,16 @@ public class MainActivity extends Activity implements Camera.PreviewCallback, Ca
         }
     }
 
+    public Camera openSingleCamera() {
+        int numberOfCameras = Camera.getNumberOfCameras();
+        Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
+        for (int i = 0; i < numberOfCameras; i++) {
+            Camera.getCameraInfo(i, cameraInfo);
+            return Camera.open(i);
+        }
+        return null;
+    }
+
     private void initListener() {
         surfaceHolder.addCallback(new SurfaceHolder.Callback() {
 
@@ -102,8 +114,15 @@ public class MainActivity extends Activity implements Camera.PreviewCallback, Ca
                 //surface创建了，绑定holder并开启预览
                 try {
                     //打开摄像头，并且旋转90度
-                    camera = open(Camera.CameraInfo.CAMERA_FACING_FRONT);
+                    if (camera != null) {
+                        camera.release();
+                    }
+                    if (Camera.getNumberOfCameras() > 1) {
+                        camera = open(Camera.CameraInfo.CAMERA_FACING_FRONT);
 //                    mIsFront = false;
+                    } else {
+                        camera = openSingleCamera();
+                    }
                     initCamParams();
                     camera.setPreviewDisplay(surfaceHolder);
                     camera.startPreview();
@@ -147,18 +166,11 @@ public class MainActivity extends Activity implements Camera.PreviewCallback, Ca
             Matrix matrix = new Matrix();
             boolean mirror = mIsFront;//前置摄像头需做镜像翻转
             matrix.setScale(mirror ? -1 : 1, 1);
-            matrix.postRotate(90);
+            matrix.postRotate(ROTATE_DEGREE);
             matrix.postScale(mSurfaceview.getWidth() / 2000f, mSurfaceview.getHeight() / 2000f);
             matrix.postTranslate(mSurfaceview.getWidth() / 2f, mSurfaceview.getHeight() / 2f);
 
             for (Camera.Face face : faces) {
-                try {
-                    Log.i(TAG, "lefyEye.x:" + face.leftEye.x + "    leftEye.y:" + face.leftEye.y);
-                    Log.i(TAG, "rightEye.x:" + face.rightEye.x + "    rightEye.y:" + face.rightEye.y);
-                    Log.i(TAG, "score: " + face.score + "  ,mouth.x:" + face.mouth.x + "    mouth.y:" + face.mouth.y);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
                 RectF srcRect = new RectF(face.rect);
                 RectF dstRect = new RectF(0f, 0f, 0f, 0f);
                 matrix.mapRect(dstRect, srcRect);
@@ -199,17 +211,18 @@ public class MainActivity extends Activity implements Camera.PreviewCallback, Ca
      * 切换摄像头
      */
     private void changeCamera() {
-        drawEmptyFace();
-        if (camera != null) {
-            //切换摄像头要释放资源，否则会报错
-            camera.setPreviewCallback(null);
-            camera.stopPreview();
-            camera.lock();
-            camera.release();
-            camera = null;
-        }
         try {
             if (Camera.getNumberOfCameras() > 1) {
+                drawEmptyFace();
+                if (camera != null) {
+                    //切换摄像头要释放资源，否则会报错
+                    camera.setPreviewCallback(null);
+                    camera.stopPreview();
+                    camera.lock();
+                    camera.release();
+                    camera = null;
+                }
+
                 if (!mIsFront) {
                     camera = open(Camera.CameraInfo.CAMERA_FACING_FRONT);
                 } else {
@@ -221,6 +234,8 @@ public class MainActivity extends Activity implements Camera.PreviewCallback, Ca
                 camera.setPreviewDisplay(surfaceHolder);
                 camera.startPreview();
                 camera.startFaceDetection();//一定要在startPreview()后调用
+            } else {
+                Toast.makeText(this, "没有可切换的摄像头", Toast.LENGTH_SHORT).show();
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -240,10 +255,10 @@ public class MainActivity extends Activity implements Camera.PreviewCallback, Ca
         if (mShapShotData != null) {
             Bitmap bitmap = BitmapUtil.convertYuv2Bitmap(mShapShotData, PREVIEW_WIDTH, PREVIEW_HEIGHT);
             if (mIsFront) {
-                bitmap = BitmapUtil.rotateBitmap(bitmap, 270);
+                bitmap = BitmapUtil.rotateBitmap(bitmap, 360 - ROTATE_DEGREE);
                 bitmap = BitmapUtil.horMirrorBitmap(bitmap);
             } else {
-                bitmap = BitmapUtil.rotateBitmap(bitmap, 90);
+                bitmap = BitmapUtil.rotateBitmap(bitmap, ROTATE_DEGREE);
             }
             mIvSnapshot.setImageBitmap(bitmap);
             if (mViewSnapshot.getVisibility() != View.VISIBLE) {
