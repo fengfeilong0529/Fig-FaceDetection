@@ -102,13 +102,13 @@ public class MainActivity extends Activity implements Camera.PreviewCallback, Ca
                 //surface创建了，绑定holder并开启预览
                 try {
                     //打开摄像头，并且旋转90度
-                    camera = open(/*Camera.CameraInfo.CAMERA_FACING_FRONT*/);
-                    mIsFront = false;
+                    camera = open(Camera.CameraInfo.CAMERA_FACING_FRONT);
+//                    mIsFront = false;
                     initCamParams();
                     camera.setPreviewDisplay(surfaceHolder);
                     camera.startPreview();
                     camera.startFaceDetection();//一定要在startPreview()后调用
-                } catch (IOException e) {
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
@@ -152,6 +152,13 @@ public class MainActivity extends Activity implements Camera.PreviewCallback, Ca
             matrix.postTranslate(mSurfaceview.getWidth() / 2f, mSurfaceview.getHeight() / 2f);
 
             for (Camera.Face face : faces) {
+                try {
+                    Log.i(TAG, "lefyEye.x:" + face.leftEye.x + "    leftEye.y:" + face.leftEye.y);
+                    Log.i(TAG, "rightEye.x:" + face.rightEye.x + "    rightEye.y:" + face.rightEye.y);
+                    Log.i(TAG, "score: " + face.score + "  ,mouth.x:" + face.mouth.x + "    mouth.y:" + face.mouth.y);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
                 RectF srcRect = new RectF(face.rect);
                 RectF dstRect = new RectF(0f, 0f, 0f, 0f);
                 matrix.mapRect(dstRect, srcRect);
@@ -192,7 +199,12 @@ public class MainActivity extends Activity implements Camera.PreviewCallback, Ca
      * 切换摄像头
      */
     private void changeCamera() {
+        drawEmptyFace();
         if (camera != null) {
+            //切换摄像头要释放资源，否则会报错
+            camera.setPreviewCallback(null);
+            camera.stopPreview();
+            camera.lock();
             camera.release();
             camera = null;
         }
@@ -213,6 +225,12 @@ public class MainActivity extends Activity implements Camera.PreviewCallback, Ca
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private void drawEmptyFace() {
+        List<RectF> rects = new ArrayList<>();
+        rects.add(new RectF(0f, 0f, 0f, 0f));
+        mDetectView.onDetectFace(rects);
     }
 
     /**
